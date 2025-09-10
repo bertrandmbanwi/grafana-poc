@@ -1,4 +1,4 @@
-# SOC Dashboard - Quick Setup Guide
+# Grafana Poc Dashboard - Quick Setup Guide
 
 ## Prerequisites
 - Docker & Docker Compose installed
@@ -8,7 +8,7 @@
 
 ### 1. Clone/Create Project Structure
 ```bash
-cd soc-dashboard
+cd grafana-poc
 ```
 
 ### 2. Start the Stack
