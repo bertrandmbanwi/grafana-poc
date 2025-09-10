@@ -1,0 +1,35 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - "alert.rules.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node Exporter - System Metrics
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    metric_relabel_configs:
+      # Only keep important metrics for SOC
+      - source_labels: [__name__]
+        regex: 'node_(cpu|memory|disk|network|filesystem|load|boot_time|time).*'
+        action: keep
+
+  # Loki metrics
+  - job_name: 'loki'
+    static_configs:
+      - targets: ['loki:3100']

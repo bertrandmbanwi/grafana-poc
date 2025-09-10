@@ -1,0 +1,82 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "soc-overview",
+    "title": "SOC Security Overview",
+    "tags": ["security", "soc"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "type": "graph",
+        "title": "System CPU Usage",
+        "datasource": "Prometheus",
+        "targets": [
+          {
+            "expr": "100 - (avg by(instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+            "legendFormat": "{{instance}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "type": "graph",
+        "title": "Memory Usage",
+        "datasource": "Prometheus",
+        "targets": [
+          {
+            "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+            "legendFormat": "{{instance}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "gridPos": {"h": 10, "w": 24, "x": 0, "y": 8},
+        "type": "logs",
+        "title": "Security Events - Authentication",
+        "datasource": "Loki",
+        "targets": [
+          {
+            "expr": "{job=\"authlog\"} |~ \"Failed password|Accepted|session\"",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 18},
+        "type": "stat",
+        "title": "Failed Login Attempts (Last Hour)",
+        "datasource": "Loki",
+        "targets": [
+          {
+            "expr": "count_over_time({job=\"authlog\"} |~ \"Failed password\" [1h])",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 18},
+        "type": "table",
+        "title": "Top Error Sources",
+        "datasource": "Loki",
+        "targets": [
+          {
+            "expr": "topk(10, sum by(container) (rate({container=~\".+\"} |~ \"error|ERROR|Error\" [5m])))",
+            "refId": "A"
+          }
+        ]
+      }
+    ],
+    "refresh": "10s",
+    "schemaVersion": 16,
+    "version": 0
+  },
+  "overwrite": true
+}

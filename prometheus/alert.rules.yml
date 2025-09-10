@@ -1,0 +1,43 @@
+groups:
+  - name: soc_alerts
+    interval: 30s
+    rules:
+      # High CPU Usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is above 80% (current value: {{ $value }}%)"
+
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is above 90% (current value: {{ $value }}%)"
+
+      # Disk Space Alert
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low disk space"
+          description: "Disk space is below 10% (current value: {{ $value }}%)"
+
+      # Security: SSH Login Attempts (requires log analysis)
+      - alert: MultipleSShFailures
+        expr: rate(promtail_custom_ssh_failures[5m]) > 5
+        for: 2m
+        labels:
+          severity: security
+        annotations:
+          summary: "Multiple SSH login failures detected"
+          description: "More than 5 SSH failures in 5 minutes"
