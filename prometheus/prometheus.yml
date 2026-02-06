@@ -1,0 +1,45 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+  # External labels attached to all metrics and alerts for environment context
+  external_labels:
+    environment: 'soc-poc'
+    cluster: 'local'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - "alert.rules.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node Exporter - System Metrics (CPU, memory, disk, network, load)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    metric_relabel_configs:
+      # Keep only SOC-relevant system metrics to reduce storage
+      - source_labels: [__name__]
+        regex: 'node_(cpu|memory|disk|network|filesystem|load|boot_time|context_switches|forks|procs|entropy|sockstat).*'
+        action: keep
+
+  # Loki internal metrics
+  - job_name: 'loki'
+    static_configs:
+      - targets: ['loki:3100']
+
+  # Alertmanager internal metrics
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['alertmanager:9093']

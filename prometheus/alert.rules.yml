@@ -1,0 +1,73 @@
+groups:
+  - name: soc_alerts
+    interval: 30s
+    rules:
+      # High CPU Usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is above 80% on {{ $labels.instance }} (current: {{ printf \"%.1f\" $value }}%)"
+
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is above 90% on {{ $labels.instance }} (current: {{ printf \"%.1f\" $value }}%)"
+
+      # Disk Space Low - now monitors ALL real filesystems, not just /
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|iso9660|nsfs"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|iso9660|nsfs"}) * 100 < 10
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}:{{ $labels.mountpoint }}"
+          description: "{{ $labels.mountpoint }} on {{ $labels.instance }} has only {{ printf \"%.1f\" $value }}% free space"
+
+      # Instance Down
+      - alert: InstanceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Instance {{ $labels.instance }} is down"
+          description: "{{ $labels.job }} instance {{ $labels.instance }} has been down for more than 1 minute"
+
+      # High Filesystem Usage (any mount) - catches filling partitions early
+      - alert: HighFilesystemUsage
+        expr: (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|iso9660|nsfs"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|iso9660|nsfs"})) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High filesystem usage on {{ $labels.instance }}:{{ $labels.mountpoint }}"
+          description: "{{ $labels.mountpoint }} on {{ $labels.instance }} is {{ printf \"%.1f\" $value }}% full"
+
+      # Network Errors - detects interface problems
+      - alert: HighNetworkErrors
+        expr: (rate(node_network_receive_errs_total[5m]) + rate(node_network_transmit_errs_total[5m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Network errors on {{ $labels.instance }}:{{ $labels.device }}"
+          description: "Interface {{ $labels.device }} on {{ $labels.instance }} has {{ printf \"%.1f\" $value }} errors/sec"
+
+      # High Load Average - normalized by CPU count
+      - alert: HighLoadAverage
+        expr: node_load5 / count without(cpu, mode) (node_cpu_seconds_total{mode="idle"}) > 1.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High load average on {{ $labels.instance }}"
+          description: "5-minute load average normalized by CPU count is {{ printf \"%.2f\" $value }} on {{ $labels.instance }}"

@@ -1,0 +1,77 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /data/positions.yaml
+  sync_period: 10s
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # General system logs
+  - job_name: system
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: varlogs
+          __path__: /var/log/*log
+    pipeline_stages:
+      # Drop health check and monitoring noise
+      - drop:
+          expression: '(?i)(healthcheck|health_check|readiness|liveness|GET /metrics|GET /-/healthy|GET /ready)'
+          drop_counter_reason: health_check_noise
+
+  # Authentication logs (security-critical, separate for targeted queries)
+  - job_name: authlog
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: authlog
+          __path__: /var/log/auth.log
+
+  # Syslog
+  - job_name: syslog
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: syslog
+          __path__: /var/log/syslog
+    pipeline_stages:
+      - drop:
+          expression: '(?i)(healthcheck|health_check)'
+          drop_counter_reason: health_check_noise
+
+  # Docker container logs with JSON parsing and metadata extraction
+  - job_name: containers
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: containers
+          __path__: /var/lib/docker/containers/*/*-json.log
+    pipeline_stages:
+      # Parse Docker JSON log format
+      - json:
+          expressions:
+            log: log
+            stream: stream
+            time: time
+      # Add stream (stdout/stderr) as a label
+      - labels:
+          stream:
+      # Use Docker's timestamp instead of ingestion time
+      - timestamp:
+          source: time
+          format: RFC3339Nano
+      # Set the log line to the actual log content
+      - output:
+          source: log
+      # Drop monitoring noise from containers
+      - drop:
+          expression: '(?i)(healthcheck|health_check|GET /metrics|GET /-/healthy|GET /ready|GET /api/health)'
+          drop_counter_reason: container_health_check

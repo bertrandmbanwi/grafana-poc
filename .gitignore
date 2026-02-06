@@ -1,0 +1,23 @@
+# Environment variables (contains credentials)
+.env
+
+# TLS certificates (generated locally, never commit)
+certs/
+!certs/.gitkeep
+
+# Data directories
+data/
+*.db
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Docker volumes (if stored locally)
+volumes/
