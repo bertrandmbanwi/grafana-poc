@@ -6,6 +6,8 @@ volumes:
   prometheus_data:
   grafana_data:
   loki_data:
+  promtail_data:
+  alertmanager_data:
 
 services:
   # Init container to fix Loki permissions
@@ -16,7 +18,7 @@ services:
       - "sh"
       - "-c"
       - |
-        mkdir -p /loki/wal /loki/chunks /loki/index
+        mkdir -p /loki/wal /loki/chunks /loki/tsdb-shipper-active /loki/tsdb-shipper-cache /loki/compactor
         chown -R 10001:10001 /loki
         echo "Permissions fixed for Loki"
     volumes:
@@ -26,7 +28,7 @@ services:
 
   # Node Exporter - System Metrics
   node-exporter:
-    image: prom/node-exporter:latest
+    image: prom/node-exporter:v1.7.0
     container_name: node-exporter
     restart: unless-stopped
     volumes:
@@ -38,31 +40,83 @@ services:
       - '--path.sysfs=/host/sys'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
     ports:
-      - "9100:9100"
+      - "${NODE_EXPORTER_PORT:-9100}:9100"
     networks:
       - monitoring
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9100/metrics"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Alertmanager - Alert Routing
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: alertmanager
+    restart: unless-stopped
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    ports:
+      - "${ALERTMANAGER_PORT:-9093}:9093"
+    networks:
+      - monitoring
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9093/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   # Prometheus - Metrics Database
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.50.0
     container_name: prometheus
     restart: unless-stopped
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-      - ./prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
-      - '--web.enable-lifecycle'
     ports:
-      - "9090:9090"
+      - "${PROMETHEUS_PORT:-9090}:9090"
     networks:
       - monitoring
     depends_on:
-      - node-exporter
+      node-exporter:
+        condition: service_healthy
+      alertmanager:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.50'
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   # Loki - Log Aggregation
   loki:
@@ -70,9 +124,9 @@ services:
     container_name: loki
     restart: unless-stopped
     ports:
-      - "3100:3100"
+      - "${LOKI_PORT:-3100}:3100"
     volumes:
-      - ./loki/loki-config.yml:/etc/loki/loki-config.yml
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
       - loki_data:/loki
     command: -config.file=/etc/loki/loki-config.yml
     networks:
@@ -80,6 +134,17 @@ services:
     depends_on:
       init:
         condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.50'
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3100/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   # Promtail - Log Collector
   promtail:
@@ -89,28 +154,48 @@ services:
     volumes:
       - /var/log:/var/log:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - ./promtail/promtail-config.yml:/etc/promtail/promtail-config.yml
+      - ./promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - promtail_data:/data
     command: -config.file=/etc/promtail/promtail-config.yml
     networks:
       - monitoring
     depends_on:
-      - loki
+      loki:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
 
   # Grafana - Visualization
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:10.3.1
     container_name: grafana
     restart: unless-stopped
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=socadmin123
+      - GF_SECURITY_ADMIN_USER=${GF_SECURITY_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD:-admin}
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
     ports:
-      - "3000:3000"
+      - "${GRAFANA_PORT:-3000}:3000"
     networks:
       - monitoring
     depends_on:
-      - prometheus
-      - loki
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.50'
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s

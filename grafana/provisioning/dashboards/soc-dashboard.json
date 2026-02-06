@@ -1,82 +1,192 @@
 {
-  "dashboard": {
-    "id": null,
-    "uid": "soc-overview",
-    "title": "SOC Security Overview",
-    "tags": ["security", "soc"],
-    "timezone": "browser",
-    "panels": [
+  "annotations": {
+    "list": [
       {
-        "id": 1,
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
-        "type": "graph",
-        "title": "System CPU Usage",
-        "datasource": "Prometheus",
-        "targets": [
-          {
-            "expr": "100 - (avg by(instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
-            "legendFormat": "{{instance}}",
-            "refId": "A"
-          }
-        ]
-      },
-      {
-        "id": 2,
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
-        "type": "graph",
-        "title": "Memory Usage",
-        "datasource": "Prometheus",
-        "targets": [
-          {
-            "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
-            "legendFormat": "{{instance}}",
-            "refId": "A"
-          }
-        ]
-      },
-      {
-        "id": 3,
-        "gridPos": {"h": 10, "w": 24, "x": 0, "y": 8},
-        "type": "logs",
-        "title": "Security Events - Authentication",
-        "datasource": "Loki",
-        "targets": [
-          {
-            "expr": "{job=\"authlog\"} |~ \"Failed password|Accepted|session\"",
-            "refId": "A"
-          }
-        ]
-      },
-      {
-        "id": 4,
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 18},
-        "type": "stat",
-        "title": "Failed Login Attempts (Last Hour)",
-        "datasource": "Loki",
-        "targets": [
-          {
-            "expr": "count_over_time({job=\"authlog\"} |~ \"Failed password\" [1h])",
-            "refId": "A"
-          }
-        ]
-      },
-      {
-        "id": 5,
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 18},
-        "type": "table",
-        "title": "Top Error Sources",
-        "datasource": "Loki",
-        "targets": [
-          {
-            "expr": "topk(10, sum by(container) (rate({container=~\".+\"} |~ \"error|ERROR|Error\" [5m])))",
-            "refId": "A"
-          }
-        ]
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
       }
-    ],
-    "refresh": "10s",
-    "schemaVersion": 16,
-    "version": 0
+    ]
   },
-  "overwrite": true
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": null,
+  "panels": [
+    {
+      "id": 1,
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "type": "timeseries",
+      "title": "System CPU Usage",
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "max": 100,
+          "min": 0,
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "red", "value": 80}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {"calcs": [], "displayMode": "list", "placement": "bottom"},
+        "tooltip": {"mode": "single"}
+      },
+      "targets": [
+        {
+          "expr": "100 - (avg by(instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "type": "timeseries",
+      "title": "Memory Usage",
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "max": 100,
+          "min": 0,
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "red", "value": 90}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {"calcs": [], "displayMode": "list", "placement": "bottom"},
+        "tooltip": {"mode": "single"}
+      },
+      "targets": [
+        {
+          "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 8},
+      "type": "logs",
+      "title": "Security Events - Authentication",
+      "datasource": "Loki",
+      "options": {
+        "showTime": true,
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "expr": "{job=\"varlogs\"} |~ \"(?i)failed password|accepted|session opened|session closed|authentication failure|sudo|unauthorized\"",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 18},
+      "type": "stat",
+      "title": "Failed Login Attempts (Last Hour)",
+      "datasource": "Loki",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 5},
+              {"color": "red", "value": 20}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["sum"],
+          "fields": ""
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "count_over_time({job=\"varlogs\"} |~ \"(?i)failed password|authentication failure\" [1h])",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 18},
+      "type": "table",
+      "title": "Top Error Sources",
+      "datasource": "Loki",
+      "targets": [
+        {
+          "expr": "topk(10, sum by(job) (count_over_time({job=~\".+\"} |~ \"(?i)error\" [5m])))",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 30,
+  "style": "dark",
+  "tags": ["security", "soc"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "SOC Security Overview",
+  "uid": "soc-overview",
+  "version": 0
 }

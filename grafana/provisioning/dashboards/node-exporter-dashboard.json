@@ -233,14 +233,14 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "rate(node_network_receive_bytes_total[5m])",
+          "expr": "rate(node_network_receive_bytes_total{device!~\"lo|veth.*|docker.*|br-.*\"}[5m])",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{device}} RX",
           "refId": "A"
         },
         {
-          "expr": "rate(node_network_transmit_bytes_total[5m])",
+          "expr": "rate(node_network_transmit_bytes_total{device!~\"lo|veth.*|docker.*|br-.*\"}[5m])",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{device}} TX",

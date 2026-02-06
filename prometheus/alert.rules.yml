@@ -32,12 +32,22 @@ groups:
           summary: "Low disk space"
           description: "Disk space is below 10% (current value: {{ $value }}%)"
 
-      # Security: SSH Login Attempts (requires log analysis)
-      - alert: MultipleSShFailures
-        expr: rate(promtail_custom_ssh_failures[5m]) > 5
-        for: 2m
+      # Instance Down
+      - alert: InstanceDown
+        expr: up == 0
+        for: 1m
         labels:
-          severity: security
+          severity: critical
         annotations:
-          summary: "Multiple SSH login failures detected"
-          description: "More than 5 SSH failures in 5 minutes"
+          summary: "Instance {{ $labels.instance }} is down"
+          description: "{{ $labels.job }} instance {{ $labels.instance }} has been down for more than 1 minute"
+
+      # High Filesystem Usage (any mount)
+      - alert: HighFilesystemUsage
+        expr: (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"})) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High filesystem usage on {{ $labels.mountpoint }}"
+          description: "Filesystem {{ $labels.mountpoint }} is {{ $value }}% full"
